@@ -1,6 +1,9 @@
 *.py[co]
+*.swp
 .DS_Store
-SSS_dataset/*
+SeubFM1318_120219.fasta
+output/
+ncbi_ygob_db/
 
 # Packages
 *.egg
