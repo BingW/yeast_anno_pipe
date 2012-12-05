@@ -12,8 +12,9 @@ from Bio.SeqRecord import SeqRecord
 import random
 import os
 
-species = "Ncastellii"
+species = "Skudriavzevii"
 work_path = "/Users/bingwang/zen/get_up_out/"
+n = 1
 sp_homo_files = [f for f in os.listdir(work_path) if species in f and "homo_1000_up.fsa" in f]
 assert len(sp_homo_files) == 1
 sp_homo_file = work_path+sp_homo_files[0]
@@ -28,7 +29,7 @@ seq_dict = {}
 for record in SeqIO.parse(sp_homo_file,"fasta"): 
     seq_dict[record.id] = record.seq
 
-for i in xrange(1000):
+for i in xrange(n,1000):
     records = []
     file_name = out_path + "%s_homo_random.%d.fsa"%(species,i+1)
     out_file = out_path + "%s_homo_meme.%d.out"%(species,i+1)
