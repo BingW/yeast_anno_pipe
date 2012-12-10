@@ -423,6 +423,14 @@ devinVSRef = "%s%s.devinVSRef.xls"%(Out_Path,SP)
 devinONscaf= "%s%s.devinONscaf.xls"%(Out_Path,SP)
 #summary_out
 devinVSRef_sum = "%s%s.ygap_vs_devin.summary"%(Out_Path,SP)
+exactVSRef_sum = "%s%s.exact_vs_ref.summary"%(Out_Path,SP)
+dstartVSRef_sum = "%s%s.dstart_vs_ref.summary"%(Out_Path,SP)
+dstopVSRef_sum = "%s%s.dstop_vs_ref.summary"%(Out_Path,SP)
+includeVSRef_sum = "%s%s.include_vs_ref.summary"%(Out_Path,SP)
+overlapVSRef_sum = "%s%s.overlap_vs_ref.summary"%(Out_Path,SP)
+disagree_devinVSRef_sum = "%s%s.disdevin_vs_ref.summary"%(Out_Path,SP)
+disagree_ygapVSRef_sum = "%s%s.disygap_vs_ref.summary"%(Out_Path,SP)
+u_devin_ygapVSRef_sum = "%s%s.united_vs_ref.summary"%(Out_Path,SP)
 #sum_of_sum = "%s%s.sumofsum.summary"%(Out_Path,SP)
 #
 Ref_seq = get_seq(Ref_fsa)
@@ -449,8 +457,15 @@ if REF:
     ygap_vs_ref = blast_result_parse(ygapVSRef)
     ref_vs_ygap = blast_result_parse(RefVSygap)
     pairs_ygap_ref = combine_two_matches(ygap_vs_ref,ref_vs_ygap)
-
     write_summary(open((RefVSygap_sum),"w"),pairs_ygap_ref,Ref_gene_dict,"SGD",ygap_gene_dict,"ygap")
+
+
+
+
+
+    #write_summary(open((devinVSRef_sum),"w"),pairs_ygap_ref,Ref_gene_dict,"SGD",ygap_gene_dict,"ygap")
+
+    
 
 
     
@@ -461,3 +476,4 @@ if REF:
 os.system("rm %s*.nhr"%Out_Path)
 os.system("rm %s*.nin"%Out_Path)
 os.system("rm %s*.nsq"%Out_Path)
+    write_summary(open((devinVSRef_sum),"w"),pairs_,Ref_gene_dict,"SGD",ygap_gene_dict,"ygap")
