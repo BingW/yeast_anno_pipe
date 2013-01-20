@@ -82,7 +82,7 @@ def run_blast():
         run_blast(devin_nc_db,Ref_nc_fsa,RefVSdevin)
 
 def write_fsa(ygap,devin,refs = None):
-    #wirte fsa file of their anontation 
+    #write fsa file of their anontation 
     #input file is a list of records
     #generate 2 files:(ygap_nc_fsa, devin_nc_fsa)
     f = open(ygap_nc_fsa,"w")
@@ -129,6 +129,27 @@ def init():
     #generate blast compare file 
     scaf2seqid = get_scaf2seqid()
 
+    if REF:
+        refs = []
+        dubious = []
+        for record in gff_parse.gffIterator(Ref_anno):
+            if record.type == "gene" and record.attributes["orf_classification"][0] == "Dubious":
+                dubious.append(record.attributes["ID"][0])
+            elif record.type == "gene" and not record.attributes["ID"][0].startswith("Q"):
+                seqid = record.seqid
+                start = int(record.start)
+                end = int(record.end)
+                record.id = record.attributes["ID"][0]
+                if record.strand == "+":
+                    record.coord = "(%d..%d)"%(start,end)
+                    record.seq = Ref_seq[seqid][start-1:end]
+                elif record.strand == "-":
+                    record.coord = "complement(%d..%d)"%(start,end)
+                    record.seq = Ref_seq[seqid][start-1:end].reverse_complement()
+                else:
+                    print "Check strand:%s"%record.type
+                refs.append(record)
+
     ygap = []
     for record in YGAPIterator(ygap_anno):
         if record.type == "PROTEIN" or record.type == "":
@@ -146,6 +167,15 @@ def init():
     devin = []
     for record in gff_parse.gffIterator(devin_gff):
         if record.type == "CDS" or record.type == "ORF":
+            if REF:
+                #exclude dubious genes
+                flag = False
+                for homo in record.attributes["SGD"]:
+                    if homo in dubious:
+                        flag = True
+                if flag:
+                    print "find %s is %s "%(record.attributes["Gene"],homo)
+                    continue
             seqid = int(record.seqid)
             record.seqid = scaf2seqid[record.seqid]
             start = int(record.start)
@@ -160,29 +190,14 @@ def init():
             else:
                 print "Check strand:%s"%record.type
             devin.append(record)
-    
+
     if REF:
-        refs = []
-        for record in gff_parse.gffIterator(Ref_anno):
-            if record.type == "gene":
-                seqid = record.seqid
-                start = int(record.start)
-                end = int(record.end)
-                record.id = record.attributes["ID"][0]
-                if record.strand == "+":
-                    record.coord = "(%d..%d)"%(start,end)
-                    record.seq = Ref_seq[seqid][start-1:end]
-                elif record.strand == "-":
-                    record.coord = "complement(%d..%d)"%(start,end)
-                    record.seq = Ref_seq[seqid][start-1:end].reverse_complement()
-                else:
-                    print "Check strand:%s"%record.type
-                refs.append(record)
         write_fsa(ygap,devin,refs)
     else:
         write_fsa(ygap,devin)
+
     run_blast()
-    return 
+    return 0
 
 def blast_result_parse(queryVSdb):
     #q = query
@@ -297,7 +312,9 @@ def combine_two_matches(matches_1,matches_2):
     return pairs
 
 def write_summary(handle,pairs,a_dict,a_name,b_dict,b_name):
-#write_summary file and up 1000 stream sequences
+
+    print "%sVS%s:\t"%(a_name,b_name),
+    #write_summary file and up 1000 stream sequences
     def write_up_down_fsa(handle, id_list, id_dict):
         for id in id_list:
             handle.write(">%s\tup:%d\tdown:%d\n"%(id,len(id_dict[id].up_1000),len(id_dict[id].down_1000)))
@@ -305,17 +322,19 @@ def write_summary(handle,pairs,a_dict,a_name,b_dict,b_name):
             handle.write("%s\n"%str(id_dict[id].orf))
             handle.write("%s\n"%str(id_dict[id].down_1000))
     #def write_up_down_visual(handle, id_list, id_dict):
-
     def write_want_type(handle, want_type):
         lines = []
         a = []
         b = []
+        record = []
         for gene_a in pairs:
             if gene_a in a_dict:
                 for gene_b in pairs[gene_a]:
-                    if pairs[gene_a][gene_b] == want_type:
+                    if gene_b in b_dict and pairs[gene_a][gene_b] == want_type:
                         a.append(gene_a)
                         b.append(gene_b)
+                        record.append(gene_a)
+                        record.append(gene_b)
                         if len(a_dict[gene_a].orf) == len(b_dict[gene_b].orf):
                             vslen = "="
                         elif len(a_dict[gene_a].orf) < len(b_dict[gene_b].orf):
@@ -325,20 +344,26 @@ def write_summary(handle,pairs,a_dict,a_name,b_dict,b_name):
                         lines.append("%s\t%s\t%s\t%s\n"%(gene_a,vslen,gene_b,pairs[gene_a][gene_b]))
         handle.write(">>>%s: %d pairs(%s %d, %s %d)\n"%\
                 (want_type,len(lines),a_name,len(set(a)),b_name,len(set(b))))
+        print "%s:%d\t"%(want_type_short[want_type],len(set(b))),
         for line in lines:
             handle.write(line)
+        return record
         #f = open("%s%s.%s.fsa"%(Out_Path,SP,want_type),"w")
         #write_up_down_fsa(f,set(a),a_dict)
         #write_up_down_fsa(f,set(b),b_dict)
 
-    a_none = [id for id in a_dict if id not in pairs]
-    b_none = [id for id in b_dict if id not in pairs]
-    write_want_type(handle,"exact match")
-    write_want_type(handle,"disagree at stop")
-    write_want_type(handle,"disagree at start")
-    write_want_type(handle,"include")
-    write_want_type(handle,"overlap")
+    want_type_short = {"exact match":"E","disagree at stop":"De","disagree at start":"Ds",\
+            "include":"I","overlap":"O"}
+    record = []
+    record += write_want_type(handle,"exact match")
+    record += write_want_type(handle,"disagree at stop")
+    record += write_want_type(handle,"disagree at start")
+    record += write_want_type(handle,"include")
+    record += write_want_type(handle,"overlap")
+    a_none = [id for id in a_dict if id not in record]
+    b_none = [id for id in b_dict if id not in record]
     handle.write(">>>none:\t(%s:%d)\t(%s:%d)\n"%(a_name,len(a_none),b_name,len(b_none)))
+    print "F:%d\tM:%d\n"%(len(a_none),len(b_none))
     handle.write(">>>>%s:\n"%a_name)
     for line in a_none:
         handle.write("%s\n"%line)
@@ -386,6 +411,16 @@ def get_gene_dict(fsa_file,seq_dict):
             gene_dict[record.id] = record
     return gene_dict
 
+def get_sub_dict(match_type,pairs,gene_dict):
+    want_gene_dict = {}
+    for gene_1 in pairs:
+        if gene_1 in gene_dict:
+            for gene_2 in pairs[gene_1]:
+                if pairs[gene_1][gene_2] == match_type:
+                    want_gene_dict[gene_1] = gene_dict[gene_1]
+    return want_gene_dict
+
+
 #============================================================================#
 SP = "scer"
 REF = True
@@ -406,8 +441,7 @@ Ref_nc_fsa = "%s%s.ref.fsa"%(Out_Path,SP)
 Ref_nc_db = "%s%s.ref.blastdb"%(Out_Path,SP)
 RefVSygap = "%s%s.RefVSygap.xls"%(Out_Path,SP)
 RefVSdevin = "%s%s.RefVSdevin.xls"%(Out_Path,SP)
-RefVSdevin_sum = "%s%s.devin_vs_ref.summary"%(Out_Path,SP)
-RefVSygap_sum = "%s%s.ygap_vs_ref.summary"%(Out_Path,SP)
+dubious_file = "%s%s.dubious.tab"%(Out_Path,SP)
 #ygap_out
 ygap_nc_fsa = "%s%s.ygap.fsa"%(Out_Path,SP)
 ygap_nc_db = "%s%s.ygap.blastdb"%(Out_Path,SP)
@@ -422,29 +456,31 @@ devinVSygap = "%s%s.devinVSygap.xls"%(Out_Path,SP)
 devinVSRef = "%s%s.devinVSRef.xls"%(Out_Path,SP)
 devinONscaf= "%s%s.devinONscaf.xls"%(Out_Path,SP)
 #summary_out
-devinVSRef_sum = "%s%s.ygap_vs_devin.summary"%(Out_Path,SP)
-exactVSRef_sum = "%s%s.exact_vs_ref.summary"%(Out_Path,SP)
-dstartVSRef_sum = "%s%s.dstart_vs_ref.summary"%(Out_Path,SP)
-dstopVSRef_sum = "%s%s.dstop_vs_ref.summary"%(Out_Path,SP)
-includeVSRef_sum = "%s%s.include_vs_ref.summary"%(Out_Path,SP)
-overlapVSRef_sum = "%s%s.overlap_vs_ref.summary"%(Out_Path,SP)
-disagree_devinVSRef_sum = "%s%s.disdevin_vs_ref.summary"%(Out_Path,SP)
-disagree_ygapVSRef_sum = "%s%s.disygap_vs_ref.summary"%(Out_Path,SP)
-u_devin_ygapVSRef_sum = "%s%s.united_vs_ref.summary"%(Out_Path,SP)
+devin_VS_ygap_sum = "%s%s.devin_vs_ygap.summary"%(Out_Path,SP)
+devin_VS_Ref_sum = "%s%s.devin_vs_ref.summary"%(Out_Path,SP)
+ygap_VS_Ref_sum = "%s%s.ygap_vs_ref.summary"%(Out_Path,SP)
+exact_VS_Ref_sum = "%s%s.exact_vs_ref.summary"%(Out_Path,SP)
+dstart_VS_Ref_sum = "%s%s.dstart_vs_ref.summary"%(Out_Path,SP)
+dstop_VS_Ref_sum = "%s%s.dstop_vs_ref.summary"%(Out_Path,SP)
+include_VS_Ref_sum = "%s%s.include_vs_ref.summary"%(Out_Path,SP)
+overlap_VS_Ref_sum = "%s%s.overlap_vs_ref.summary"%(Out_Path,SP)
+ddevin_VS_Ref_sum = "%s%s.disdevin_vs_ref.summary"%(Out_Path,SP)
+dygap_VS_Ref_sum = "%s%s.disygap_vs_ref.summary"%(Out_Path,SP)
+all_VS_Ref_sum = "%s%s.united_vs_ref.summary"%(Out_Path,SP)
 #sum_of_sum = "%s%s.sumofsum.summary"%(Out_Path,SP)
-#
+
 Ref_seq = get_seq(Ref_fsa)
 ygap_seq = get_seq(ygap_fsa)
 devin_seq = get_seq(devin_fsa)
 ##===============================================================================#
-init()
+#init()
 ygap_gene_dict = get_gene_dict(ygap_nc_fsa,ygap_seq)
 devin_gene_dict = get_gene_dict(devin_nc_fsa,devin_seq)
 
 devin_as_q = blast_result_parse(devinVSygap)
 ygap_as_q = blast_result_parse(ygapVSdevin)
-pairs = combine_two_matches(devin_as_q, ygap_as_q)
-write_summary(open(devinVSRef_sum,"w"),pairs,ygap_gene_dict,"ygap",devin_gene_dict,"devin")
+pairs_devin_ygap = combine_two_matches(devin_as_q, ygap_as_q)
+write_summary(open(devin_VS_ygap_sum,"w"),pairs_devin_ygap,devin_gene_dict,"devin",ygap_gene_dict,"ygap")
 
 if REF:
     Ref_gene_dict = get_gene_dict(Ref_nc_fsa,Ref_seq)
@@ -452,28 +488,42 @@ if REF:
     devin_vs_ref = blast_result_parse(devinVSRef)
     ref_vs_devin = blast_result_parse(RefVSdevin)
     pairs_devin_ref = combine_two_matches(devin_vs_ref,ref_vs_devin)
-    write_summary(open((RefVSdevin_sum),"w"),pairs_devin_ref,Ref_gene_dict,"SGD",devin_gene_dict,"devin")
+    write_summary(open((devin_VS_Ref_sum),"w"),pairs_devin_ref,devin_gene_dict,"devin",Ref_gene_dict,"SGD")
 
     ygap_vs_ref = blast_result_parse(ygapVSRef)
     ref_vs_ygap = blast_result_parse(RefVSygap)
     pairs_ygap_ref = combine_two_matches(ygap_vs_ref,ref_vs_ygap)
-    write_summary(open((RefVSygap_sum),"w"),pairs_ygap_ref,Ref_gene_dict,"SGD",ygap_gene_dict,"ygap")
+    write_summary(open((ygap_VS_Ref_sum),"w"),pairs_ygap_ref,ygap_gene_dict,"ygap",Ref_gene_dict,"SGD")
+    #write_want_type(handle,"exact match")
+    #write_want_type(handle,"disagree at stop")
+    #write_want_type(handle,"disagree at start")
+    #write_want_type(handle,"include")
+    #write_want_type(handle,"overlap")
 
-
-
-
-
-    #write_summary(open((devinVSRef_sum),"w"),pairs_ygap_ref,Ref_gene_dict,"SGD",ygap_gene_dict,"ygap")
-
-    
-
-
-    
-
+    exact_match_dict = get_sub_dict("exact match",pairs_devin_ygap,ygap_gene_dict)
+    write_summary(open((exact_VS_Ref_sum),"w"),pairs_ygap_ref,exact_match_dict,"exact match",Ref_gene_dict,"SGD")
+    ddevin_dict = {gene: devin_gene_dict[gene] for gene in devin_gene_dict if gene not in pairs_devin_ygap}
+    write_summary(open((ddevin_VS_Ref_sum),"w"),pairs_devin_ref,ddevin_dict,"ddevin",Ref_gene_dict,"SGD")
+    dygap_dict = {gene: ygap_gene_dict[gene] for gene in ygap_gene_dict if gene not in pairs_devin_ygap}
+    write_summary(open((dygap_VS_Ref_sum),"w"),pairs_ygap_ref,dygap_dict,"dygap",Ref_gene_dict,"SGD")
+    all_devin_ygap_VS_Ref = {"exact match":[],"disagree at stop":[],"disagree at start":[],"include":[],"overlap":[]}
+    set_1 = set([gene for gene in Ref_gene_dict if gene not in pairs_devin_ref])
+    set_2 = set([gene for gene in Ref_gene_dict if gene not in pairs_ygap_ref])
+    all_devin_ygap_VS_Ref["miss"] = set_1 & set_2
+    for gene_1 in pairs_devin_ref:
+        if gene_1 in Ref_gene_dict:
+            for gene_2 in pairs_devin_ref[gene_1]:
+                all_devin_ygap_VS_Ref[pairs_devin_ref[gene_1][gene_2]].append(gene_1)
+    for gene_1 in pairs_ygap_ref:
+        if gene_1 in Ref_gene_dict:
+            for gene_2 in pairs_ygap_ref[gene_1]:
+                all_devin_ygap_VS_Ref[pairs_ygap_ref[gene_1][gene_2]].append(gene_1)
+    for item in all_devin_ygap_VS_Ref:
+        print item,len(set(all_devin_ygap_VS_Ref[item]))
+    print set([gene for gene in all_devin_ygap_VS_Ref["miss"] if not gene.startswith("Q")])
 
 
 #=================================================================================#
-os.system("rm %s*.nhr"%Out_Path)
-os.system("rm %s*.nin"%Out_Path)
-os.system("rm %s*.nsq"%Out_Path)
-    write_summary(open((devinVSRef_sum),"w"),pairs_,Ref_gene_dict,"SGD",ygap_gene_dict,"ygap")
+#os.system("rm %s*.nhr"%Out_Path)
+#os.system("rm %s*.nin"%Out_Path)
+#os.system("rm %s*.nsq"%Out_Path)
