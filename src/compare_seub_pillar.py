@@ -70,7 +70,7 @@ for line in open(pillar_file):
 
 for line in all_synteny:
     if line != ("---","---","---","---","---","---","---"):
-        rint "\t".join(line)
+        print "\t".join(line)
         pass
 
 seub_only = [gene for gene in seub_synteny if gene not in seub_has_homo]

@@ -1,5 +1,9 @@
 *.py[co]
 *.swp
+*.swo
+*.txt
+*.fasta
+*.out
 .DS_Store
 SeubFM1318_120219.fasta
 output/
