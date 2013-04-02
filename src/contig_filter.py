@@ -12,9 +12,9 @@ Out_Path = "/Users/bingwang/zen/yeast_anno_pipe/output/YGAPvsDevin/"
 from Bio import SeqIO
 import os
 
-input_contig_file = "/Users/bingwang/zen/yeast_anno_pipe/SeubFM1318_120219.fasta"
-output_contig_file = "/Users/bingwang/zen/yeast_anno_pipe/SeubFM1318_5000_130121.fasta"
-minimal_contig_len = 5000
+input_contig_file = "/Users/bingwang/zen/yeast_anno_pipe/suva.mergedscaf.fsa"
+output_contig_file = "/Users/bingwang/zen/yeast_anno_pipe/SuvaCBS7001_3000.fasta"
+minimal_contig_len = 3000
 
 seq_list = []
 for record in SeqIO.parse(input_contig_file,"fasta"):

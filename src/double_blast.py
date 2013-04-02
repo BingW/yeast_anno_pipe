@@ -9,9 +9,8 @@ __docformat__ = "epytext en"
 
 
 """
-This program will take two fasta file as input, 
-use balst compare them and return 
-exact same pairs back as table.
+This program will take two nt fasta file as input, 
+use balst one to one pair.
 >>> import compare2fsa
 >>> compare2fsa.main(fsafile_1,fsa_file_2)
 ...

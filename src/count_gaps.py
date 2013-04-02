@@ -33,12 +33,25 @@ for i,line in enumerate(content):
             else:
                 gap.append(line)
 
-for line in gap:
-    i = content.index(line)
-    if content[i-1][5] != "":
-        up_num = int(content[i-1][3])
-        print "Gap @ ",content[i-1][1],content[i-1][3],"..",
-    if content[i+1][5] != "":
-        down_num = int(content[i+1][3])
-        print content[i+1][3],
-        print "length:",down_num - up_num
+def print_region_list(region_list,region_type):
+    count = 0
+    for line in region_list:
+        i = content.index(line)
+        if content[i-1][5] != "":
+            up_num = int(content[i-1][2])
+            up_scaf = content[i-1][6]
+            print "%s @ %s\t%s.."%(region_type,content[i-1][1],content[i-1][3]),
+        if content[i+1][5] != "":
+            down_num = int(content[i+1][3])
+            down_scaf = content[i+1][6]
+            print content[i+1][3],
+            print "length:%d\t"%(down_num - up_num),
+            print "up_scaf:%s\tdown_scaf:%s\t"%(up_scaf,down_scaf)
+            count += 1
+    print count
+
+print_region_list(gap,"gap")
+#print "coverage:", 1-((len(headntail)+len(gap)) * 1.0 / len(content))
+#for gene in scersp:
+#    print "\t".join(gene),
+#print "total:",len(scersp)
