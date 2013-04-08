@@ -5,6 +5,12 @@
 # Copyleft Bing Wang
 # LICENCES: GPL v3.0
 
+#vesrion: 0.1.1
+#modification:
+#check two *.fsa files should appear in the command
+#check if the out_put.fsa file exists, report error and exit program.
+
+
 __docformat__ = "epytext en"
 
 import os
@@ -12,7 +18,7 @@ import sys
 
 def print_help():
     print "USAGE\n"
-    print "./Bing_RBBH [-h/-help] [-e e_value] [-f] [-p] fasta_file_1 fasta_file_2 out_put_file\n"
+    print "bing_RBBH [-h/-help] [-e e_value] [-f] [-p] fasta_file_1 fasta_file_2 out_put_file\n"
     print "OPTIONAL ARGUMENTS\n"
     print "-h/help"
     print "\t print help info"
@@ -24,14 +30,34 @@ def print_help():
     print "\t the two fasta file is protein sequence rather than nucle tide sequence\n"
 
 def check_file():
+    fsa_files = [f for f in sys.argv if (f.endswith(".fsa") or f.endswith(".fasta"))]
+    if len(fsa_files) != 2:
+        print "You must enter exactly 2 fasta files(must end with .fsa or .fasta)"
+        sys.exit()
+
+    elif (sys.argv[-1].endswith(".fsa") or sys.argv[-1].endswith(".fasta")):
+        print "out_put_file not find"
+        print_help()
+        sys.exit()
+
+    out_file_path = "/".join(sys.argv[-1].split("/")[:-1])
+    out_file_path = os.getcwd() if out_file_path == "" else out_file_path
+    out_put_file = sys.argv[-1].split("/")[-1]
+    if not os.path.exists(out_file_path):
+        os.system("mkdir out_file_path")
+    if out_put_file in os.listdir(out_file_path):
+        print "The out_put file exists, pleast delete it or rename it first"
+        sys.exit()
+
     try:
-        assert "-h" not in sys.argv and "-help" not in sys.argv
-        assert sys.argv[-2].endswith(".fsa") or sys.argv[-2].endswith(".fasta")
-        assert sys.argv[-3].endswith(".fsa") or sys.argv[-2].endswith(".fasta")
+        assert (sys.argv[-2].endswith(".fsa") or sys.argv[-2].endswith(".fasta"))
+        assert (sys.argv[-3].endswith(".fsa") or sys.argv[-2].endswith(".fasta"))
         #add asserts here
     except:
         print_help()
         sys.exit()
+
+    
 
 def reciprocal_best_blastn(nt_file_a,nt_file_b,e_val):
     #first make 2 db
@@ -90,6 +116,10 @@ def write_out_put(fsa_file_1,fsa_file_2,final_out):
 
 def main():
     check_file()
+    if "-h" in sys.argv or "-help" in sys.argv:
+        print_help()
+        sys.exit()
+
     fsa_file_1 = sys.argv[-3]
     fsa_file_2 = sys.argv[-2]
     final_out = sys.argv[-1]
